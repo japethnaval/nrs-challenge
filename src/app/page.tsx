@@ -1,101 +1,149 @@
-import Image from "next/image";
+'use client'
+import { ElevatorContext } from "@/providers/elevator.provider"
+import { Elevator } from "./components/elevator/elevator.component"
+import { useContext, useDeferredValue, useEffect, useState } from "react"
+import { generateANumber } from "@/utils/generateANumber"
 
-export default function Home() {
+const Home = () => {
+  const TOTAL_FLOORS = Array.from({ length: 10 }, (_, i) => i + 1) // Floors 1 to 10
+  const { elevator1, elevator2, elevator3, elevator4 } = useContext(ElevatorContext)
+  const [requestQueue, setRequestQueue] = useState<number[]>([])
+  const deferredRequestQueue = useDeferredValue(requestQueue)
+
+
+  const handleClick = (floor_to: number) => {
+    const elevators = [elevator1, elevator2, elevator3, elevator4]
+    const floor_from = generateANumber(floor_to)
+    const direction = floor_from > floor_to ? "down" : "up"
+  
+    console.log("Request:", { floor_from, floor_to, direction })
+  
+   /**
+    * Find elevators already moving in the requested direction
+    * We validate the direction to compare weather the elevator has passed the floor where the
+    * request originated from
+    **/ 
+    const matchingElevators = elevators
+      .filter((elevator) => 
+        elevator.direction === direction &&
+        (direction === "up" ? elevator.floor <= floor_from : elevator.floor >= floor_from)
+      )
+      .sort((a, b) => Math.abs(a.floor - floor_from) - Math.abs(b.floor - floor_from))
+  
+    
+    /**
+     * There is an moving elevator we can ride on...
+     */
+    if (matchingElevators.length > 0) {
+      const assignedElevator = matchingElevators[0]
+  
+      assignedElevator.setRequests((prev) => [
+        ...prev,
+        { id: Date.now(), direction, status: "pending", floor_from, floor_to }
+      ])
+  
+      console.log("Assigned to a moving elevator", assignedElevator.id, { floor_from, floor_to, direction })
+      return
+    }
+  
+    /**
+     * There are no matching elevator based on the request, check for idle elevators
+     */
+    const idleElevator = elevators.find((elevator) => elevator.direction === "idle")
+  
+    if (idleElevator) {
+      if (direction === "down" && idleElevator.floor < floor_from) {
+        // Elevator is below the requested floor, going UP...
+        idleElevator.setRequests((prev) => [
+          ...prev,
+          { id: Date.now(), direction: "up", status: "pending", floor_from: idleElevator.floor, floor_to: floor_from }
+        ])
+  
+        idleElevator.setDirection("up")
+        idleElevator.setMoving(true)
+  
+        console.log(`Idle elevator ${idleElevator.id} moving UP first to pick up`, idleElevator.floor, "->", floor_from)
+  
+        // Elevator reached the requested floor, going DOWN...
+        setTimeout(() => {
+          idleElevator.setDirection("down")
+          idleElevator.setRequests((prev) => [
+            ...prev,
+            { id: Date.now(), direction: "down", status: "pending", floor_from, floor_to }
+          ])
+          idleElevator.setMoving(true)
+  
+          console.log(`Idle elevator ${idleElevator.id} now moving DOWN`, floor_from, "->", floor_to)
+        }, Math.abs(floor_from - idleElevator.floor) * 3000)
+  
+        return
+      }
+  
+      /**
+       * EVERYTHING WENT SMOOTH
+       */
+      idleElevator.setDirection(direction)
+      idleElevator.setRequests((prev) => [
+        ...prev,
+        { id: Date.now(), direction, status: "pending", floor_from, floor_to }
+      ])
+      idleElevator.setMoving(true)
+  
+      console.log("Assigned to an idle elevator", idleElevator.id, { floor_from, floor_to, direction })
+      return
+    }
+  
+    /**
+     * There are no available elevators as of the moment, do queing
+     */
+    console.log("No available elevator for request. Pass it into the queue")
+    setTimeout(() =>  setRequestQueue((prevQueue) => [...prevQueue, floor_from]), 12000)
+   
+  }
+
+
+  useEffect(() => {
+    console.log('SERVICE INITIALIZED ===> TRIGGERING THE QUEUE')
+    const requestInterval = setInterval(() => {
+      const randomFloor = Math.floor(Math.random() * 10) + 1
+      
+      setRequestQueue((prevQueue) => [...prevQueue, randomFloor])
+    }, 12000)
+  
+    return () => clearInterval(requestInterval)
+  }, [])
+
+  
+  useEffect(() => {
+    if (deferredRequestQueue.length > 0) {
+      const nextFloor = deferredRequestQueue[0]
+      handleClick(nextFloor)
+      setRequestQueue((prevQueue) => prevQueue.slice(1))
+    }
+  }, [deferredRequestQueue])
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="flex gap-8">
+      <div className="flex gap-4 flex-col">
+        <Elevator {...elevator1} />
+        <Elevator {...elevator2} />
+        <Elevator {...elevator3} />
+        <Elevator {...elevator4} />
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      <div className="flex gap-4 flex-col-reverse">
+        {TOTAL_FLOORS.map((floor) => (
+          <button
+            key={floor}
+            onClick={() => handleClick(floor)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            Floor {floor}
+          </button>
+        ))}
+      </div>
     </div>
-  );
+  )
 }
+
+export default Home

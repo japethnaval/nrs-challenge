@@ -1,0 +1,32 @@
+name: Deploy Next.js App
+
+on:
+  push:
+    branches:
+      - main # Change to your deployment branch (e.g., "main" or "production")
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Next.js App
+        run: npm run build
+
+      - name: Upload Production Build
+        uses: actions/upload-artifact@v3
+        with:
+          name: next-build
+          path: .next
