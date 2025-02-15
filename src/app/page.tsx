@@ -5,7 +5,7 @@ import { useContext, useDeferredValue, useEffect, useState } from "react"
 import { generateANumber } from "@/utils/generateANumber"
 
 const Home = () => {
-  const TOTAL_FLOORS = Array.from({ length: 10 }, (_, i) => i + 1) // Floors 1 to 10
+  // const TOTAL_FLOORS = Array.from({ length: 10 }, (_, i) => i + 1) // Floors 1 to 10
   const { elevator1, elevator2, elevator3, elevator4 } = useContext(ElevatorContext)
   const [requestQueue, setRequestQueue] = useState<number[]>([])
   const deferredRequestQueue = useDeferredValue(requestQueue)
@@ -59,12 +59,12 @@ const Home = () => {
           { id: Date.now(), direction: "up", status: "pending", floor_from: idleElevator.floor, floor_to: floor_from }
         ])
   
-        idleElevator.setDirection("up")
+        // idleElevator.setDirection("up")
         idleElevator.setMoving(true)
   
         console.log(`Idle elevator ${idleElevator.id} moving UP first to pick up`, idleElevator.floor, "->", floor_from)
   
-        // Elevator reached the requested floor, going DOWN...
+        // // Elevator reached the requested floor, going DOWN...
         setTimeout(() => {
           idleElevator.setDirection("down")
           idleElevator.setRequests((prev) => [
@@ -74,15 +74,15 @@ const Home = () => {
           idleElevator.setMoving(true)
   
           console.log(`Idle elevator ${idleElevator.id} now moving DOWN`, floor_from, "->", floor_to)
-        }, Math.abs(floor_from - idleElevator.floor) * 3000)
+        }, Math.abs(floor_from - idleElevator.floor) * 20000)
   
-        return
+        // return
       }
   
       /**
        * EVERYTHING WENT SMOOTH
        */
-      idleElevator.setDirection(direction)
+      // idleElevator.setDirection(direction)
       idleElevator.setRequests((prev) => [
         ...prev,
         { id: Date.now(), direction, status: "pending", floor_from, floor_to }
@@ -103,7 +103,7 @@ const Home = () => {
 
 
   useEffect(() => {
-    console.log('SERVICE INITIALIZED ===> TRIGGERING THE QUEUE')
+    console.log('SERVICE INITIALIZED ===> TRIGGERING THE QUEUE!')
     const requestInterval = setInterval(() => {
       const randomFloor = Math.floor(Math.random() * 10) + 1
       
@@ -131,7 +131,7 @@ const Home = () => {
         <Elevator {...elevator4} />
       </div>
 
-      <div className="flex gap-4 flex-col-reverse">
+      {/* <div className="flex gap-4 flex-col-reverse">
         {TOTAL_FLOORS.map((floor) => (
           <button
             key={floor}
@@ -141,7 +141,7 @@ const Home = () => {
             Floor {floor}
           </button>
         ))}
-      </div>
+      </div> */}
     </div>
   )
 }

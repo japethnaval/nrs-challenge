@@ -5,36 +5,87 @@ import { useEffect } from "react";
 export const Elevator = ({id,floor, moving, direction, requests, setFloor, setMoving, setRequests, setDirection}: ElevatorState) => {
 
 
+
   useEffect(() => {
     if (moving) {
-      const relevantRequests = requests.filter((req) => req.direction === direction);
-
-      const largestFloorTo = relevantRequests.reduce((max, req) => Math.max(max, req.floor_to), -Infinity);
+      let currentInterval = 10000;
+      let interval: NodeJS.Timeout;
   
-      const leastFloorTo = relevantRequests.reduce((min, req) => Math.min(min, req.floor_to), Infinity);
+      const startInterval = () => {
+        clearInterval(interval);
+        interval = setInterval(() => {
+          setFloor((prevFloor: number) => {
+            if (requests.length === 0) {
+              setMoving(false);
+              setDirection("idle");
+              return prevFloor;
+            }
   
-      const interval = setInterval(() => {
-        setFloor((prevFloor: number) => {
-          // stops moving until the largest floor requested
-          if (direction === "up" && prevFloor < largestFloorTo) {
-            return prevFloor + 1;
-          // stops moving until the least floor requested
-          } else if (direction === "down" && prevFloor > leastFloorTo) {
-            return prevFloor - 1;
-          } else {
-            setMoving(false)
-            setDirection('idle')
-          
-            setRequests((prev) => prev.filter((req) => req.floor_to !== prevFloor));
-
+            const firstRequest = requests[0];
+            if (direction === "idle" && firstRequest) {
+              setDirection(firstRequest.floor_to > prevFloor ? "up" : "down");
+              return prevFloor;
+            }
+  
+            const relevantRequests = requests.filter(
+              (req) => req.direction === direction
+            );
+            const largestFloorTo = relevantRequests.length
+              ? Math.max(...relevantRequests.map((req) => req.floor_to))
+              : prevFloor;
+            const leastFloorTo = relevantRequests.length
+              ? Math.min(...relevantRequests.map((req) => req.floor_to))
+              : prevFloor;
+  
+            let conditionMet = false;
+  
+            if (direction === "up") {
+              if (prevFloor < largestFloorTo) {
+                conditionMet = requests.some(
+                  (req) =>
+                    req.floor_from === prevFloor + 1 ||
+                    req.floor_to === prevFloor + 1
+                );
+                return prevFloor + 1;
+              } else {
+                setRequests((prev) =>
+                  prev.filter((req) => req.floor_to !== prevFloor)
+                );
+              }
+            } else if (direction === "down") {
+              if (prevFloor > leastFloorTo) {
+                conditionMet = requests.some(
+                  (req) =>
+                    req.floor_from === prevFloor - 1 ||
+                    req.floor_to === prevFloor - 1
+                );
+                return prevFloor - 1;
+              } else {
+                setRequests((prev) =>
+                  prev.filter((req) => req.floor_to !== prevFloor)
+                );
+              }
+            }
+  
+            // Adjust interval based on condition
+            if (conditionMet && currentInterval !== 20000) {
+              currentInterval = 20000;
+              startInterval();
+            } else if (!conditionMet && currentInterval !== 10000) {
+              currentInterval = 10000;
+              startInterval();
+            }
+  
             return prevFloor;
-          }
-        });
-      }, 10000);
+          });
+        }, currentInterval);
+      };
+  
+      startInterval();
   
       return () => clearInterval(interval);
     }
-  }, [moving, direction, setFloor, setMoving, requests, setDirection, setRequests]);
+  }, [moving, direction, floor, requests, setFloor, setMoving, setDirection, setRequests]);
   
 
   return (
